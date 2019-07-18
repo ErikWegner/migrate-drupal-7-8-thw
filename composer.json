@@ -1,3 +1,19 @@
 {
-  "name": "erikwegner/migrate-drupal-7-8-thw"
+    "name": "erikwegner/migrate-drupal-7-8-thw",
+    "description": "Drush command to migrate from Drupal 7 to Drupal 8",
+    "type": "drupal-module",
+    "license": "GPL-3.0+",
+    "authors": [
+        {
+            "name": "Erik Wegner",
+            "email": "E_Wegner@web.de"
+        }
+    ],
+    "extra": {
+        "drush": {
+            "services": {
+                "drush.services.yml": "^9"
+            }
+        }
+    }
 }
