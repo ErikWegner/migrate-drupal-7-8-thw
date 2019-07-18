@@ -1,0 +1,5 @@
+services:
+  migratethw.commands:
+    class: \Drupal\migratethw\Commands\MigrateThwCommands
+    tags:
+      - { name: drush.command }

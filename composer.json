@@ -9,6 +9,11 @@
             "email": "E_Wegner@web.de"
         }
     ],
+    "autoload": {
+        "psr-4": {
+            "Drupal\\migratethw\\": "src/"
+        }
+    },
     "extra": {
         "drush": {
             "services": {
