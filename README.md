@@ -1,6 +1,11 @@
 # migrate-drupal-7-8-thw
 Migration from Drupal 7 to Drupal 8
 
+## Modules on Drupal 7
+
+* services
+* services_api_key_auth
+
 ## Pending questions
 
 * Calendar module
@@ -17,6 +22,11 @@ Migration from Drupal 7 to Drupal 8
 * Set permissions
 ** Disable forum content type for all users
 
+## Run migration
+
+    cd /srv/http/drupal/web
+    ../vendor/bin/drush --uri http://thw8.localhost migratethw:run
+
 ## To do (after import)
 
 * Create front page
@@ -26,6 +36,7 @@ Migration from Drupal 7 to Drupal 8
 ** Calendar
 * Blocks
 * Footer menu
+* Aggregator
 
 ## To implement
 
