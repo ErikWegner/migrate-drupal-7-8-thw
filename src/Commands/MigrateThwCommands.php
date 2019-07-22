@@ -18,6 +18,11 @@ use Drush\Commands\DrushCommands;
  */
 class MigrateThwCommands extends DrushCommands {
 
+  private $endpointbase = '';
+  private $apikey = '';
+  private $first_node_id = 0;
+  private $last_node_id = 0;
+
   /**
    * Run migration.
    *
@@ -30,17 +35,20 @@ class MigrateThwCommands extends DrushCommands {
     $options = [
       'endpointbase' => InputOption::VALUE_REQUIRED,
       'apikey' => InputOption::VALUE_REQUIRED,
+      'pathbase' => 'https://www.thw-bernburg.de',
+      'first_node_id' => 1,
+      'last_node_id' => 774,
     ]
   ) {
     $this->logger()->notice(dt('Start'));
     if ($this->validateOptions($options)) {
-      // implementaion goes here
+      $this->importNodes();
     }
     $this->logger()->notice(dt('Done'));
   }
 
   public function setInput(\Symfony\Component\Console\Input\InputInterface $input) {
-    
+
   }
 
   /**
@@ -56,9 +64,35 @@ class MigrateThwCommands extends DrushCommands {
         $this->logger()->error('Option missing: {optionname}', ['optionname' => $optionname]);
         return FALSE;
       }
+      $this->$optionname = $options[$optionname];
     }
+
+    $this->first_node_id = intval($options['first_node_id']);
+    $this->last_node_id = intval($options['last_node_id']);
 
     return TRUE;
   }
 
+  private function importNodes() {
+    for ($nid = $this->first_node_id; $nid < $this->last_node_id + 1; $nid++) {
+      $this->importNode($nid);
+    };
+  }
+
+  private function importNode($nid) {
+    $this->logger()->notice("Retrieving node {nid}", ['nid' => $nid]);
+    $json = file_get_contents($this->endpointbase . 'node/' . $nid . '?api-key=' . $this->apikey);
+    $data = json_decode($json);
+
+    if ($data === NULL) {
+      $this->logger()->warning("Node not found: {nid}", ['nid' => $nid]);
+      return;
+    }
+
+    $this->importNodeData($data);
+  }
+
+  private function importNodeData($data) {
+    // TODO: implement
+  }
 }
