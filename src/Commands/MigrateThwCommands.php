@@ -4,6 +4,7 @@ namespace Drupal\migratethw\Commands;
 
 use Symfony\Component\Console\Input\InputOption;
 use Drush\Commands\DrushCommands;
+use Drupal\node\Entity\Node;
 
 /**
  * A Drush commandfile.
@@ -22,6 +23,8 @@ class MigrateThwCommands extends DrushCommands {
   private $apikey = '';
   private $first_node_id = 0;
   private $last_node_id = 0;
+  private $pathbase = '';
+  private $delete_existing_nodes = FALSE;
 
   /**
    * Run migration.
@@ -38,6 +41,7 @@ class MigrateThwCommands extends DrushCommands {
       'pathbase' => 'https://www.thw-bernburg.de',
       'first_node_id' => 1,
       'last_node_id' => 774,
+      'delete_existing_nodes' => FALSE,
     ]
   ) {
     $this->logger()->notice(dt('Start'));
@@ -69,6 +73,8 @@ class MigrateThwCommands extends DrushCommands {
 
     $this->first_node_id = intval($options['first_node_id']);
     $this->last_node_id = intval($options['last_node_id']);
+    $this->pathbase = $options['pathbase'];
+    $this->delete_existing_nodes = $options['delete_existing_nodes'];
 
     return TRUE;
   }
@@ -93,6 +99,142 @@ class MigrateThwCommands extends DrushCommands {
   }
 
   private function importNodeData($data) {
-    // TODO: implement
+    $allowed_types = ['blog', 'date', 'forum', 'gallery_assist', 'image', 'page', 'sponsoring', 'startseitenbild', 'story'];
+    if (in_array($data->type, $allowed_types) === FALSE) {
+      $this->logger()->error('Unsupported type {type} for node {nid}', ['type' => $data->type, 'nid' => $data->nid]);
+      return;
+    }
+
+    $node = $this->get_or_create_node($data);
+
+    // TODO: custom node type handlings
+    // TODO: attachments
+    // TODO: images
+
+    $node->save();
   }
+
+  private function get_or_create_node($data) {
+    $node = Node::load($data->nid);
+    /* Remove existing nodes if configured */
+    if ($node !== NULL && $this->delete_existing_nodes) {
+      $node->delete();
+      $node = NULL;
+    }
+
+    // Url alias from source system
+    $nodealias = urldecode(substr($data->path, strlen($this->pathbase)));
+
+    if ($node === NULL) {
+      // Select language from source node
+      if (!($data->language === "de" || $data->language === "en" || $data->language === "und")) {
+        $this->logger()->warning(
+          'Language {lang} on node {nid} switched to de', ['lang' => $data->language, 'nid' => $data->nid]);
+        $data->language = "de";
+      }
+
+      $node = Node::create([
+          'nid' => $data->nid,
+          'type' => MigrateThwCommands::node_type_map($data->type),
+          'langcode' => $data->language,
+          'path' => $nodealias,
+      ]);
+    }
+
+    // Extract body field from source node
+    $body = $data->body->und[0];
+
+    // Set or update fields
+    $node->uid = $data->uid;
+
+    $node->title->value = $data->title;
+    $node->status->value = $data->status;
+    $node->created->value = $data->created;
+    $node->changed->value = $data->changed;
+    $node->body->value = $body->value;
+    $node->body->summary = MigrateThwCommands::clean_summary($body->summary);
+    $node->body->format = MigrateThwCommands::format_map($body->format);
+
+    // Fix summary field
+    $this->fix_node_summary($node);
+
+    return $node;
+  }
+
+  private static function node_type_map($d7type) {
+    switch ($d7type) {
+      case 'gallery_assist':
+      case 'image':
+      case 'story' :
+        return 'blog';
+      default:
+        return $d7type;
+    }
+  }
+
+  /**
+   * Remove p- or div-tags surrounding the summary
+   * @param string $summary Imported summary
+   * @return string Cleaned summary
+   */
+  private static function clean_summary($rawsummary) {
+    $summary = trim($rawsummary);
+    if (substr($summary, 0, 3) === '<p>' && substr($summary, -4) === '</p>') {
+      return substr($summary, 3, -4);
+    }
+    if (substr($summary, 0, 5) === '<div>' && substr($summary, -6) === '</div>') {
+      return substr($summary, 5, -6);
+    }
+
+    return $summary;
+  }
+
+  /**
+   *  Map old input format to new Drupal 8 input format
+   */
+  private static function format_map($format) {
+    $format_map = array(
+      1 => 'basic_html', // Filtered HTML in D7.
+      2 => 'full_html', // Full HTML in D7.
+      3 => 'restricted_html', // Comments
+      4 => 'plain_text', // Plain Text in D7.
+      'php_code' => '',
+    );
+
+    if (array_key_exists($format, $format_map)) {
+      return $format_map[$format];
+    }
+
+    return $format_map[3];
+  }
+
+  private function fix_node_summary($node) {
+    $v = $node->body->value;
+
+    $needle = '<!--break-->';
+    $pos = stripos($v, $needle);
+
+    if ($pos === FALSE) {
+      return;
+    }
+
+    if ($node->body->summary != "") {
+      $this->logger()->error("Summary with --break-- in node {nid}", ['nid' => $node->id]);
+      return;
+    }
+
+    $summary = substr($v, 0, $pos);
+    if (substr($summary, 0, 3) === '<p>') {
+      $summary = substr($summary, 3);
+    }
+    if (substr($summary, 0, 5) === '<div>') {
+      $summary = substr($summary, 5);
+    }
+
+    $body = str_ireplace($needle, '', $v);
+
+    $node->body->summary = $summary;
+    $node->body->value = $body;
+  }
+
 }
