@@ -1,6 +1,11 @@
 # migrate-drupal-7-8-thw
 Migration from Drupal 7 to Drupal 8
 
+## Blockers
+
+* https://www.drupal.org/project/drupal/issues/2794481
+* https://www.drupal.org/project/drupal/issues/2632040
+
 ## Modules on Drupal 7
 
 * services
