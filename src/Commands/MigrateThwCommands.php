@@ -99,15 +99,21 @@ class MigrateThwCommands extends DrushCommands {
   }
 
   private function importNodeData($data) {
+    $current_node_type = $data->type;
     $allowed_types = ['blog', 'date', 'forum', 'gallery_assist', 'image', 'page', 'sponsoring', 'startseitenbild', 'story'];
-    if (in_array($data->type, $allowed_types) === FALSE) {
-      $this->logger()->error('Unsupported type {type} for node {nid}', ['type' => $data->type, 'nid' => $data->nid]);
+    if (in_array($current_node_type, $allowed_types) === FALSE) {
+      $this->logger()->error('Unsupported type {type} for node {nid}', ['type' => $current_node_type, 'nid' => $data->nid]);
       return;
     }
 
     $node = $this->get_or_create_node($data);
 
     // TODO: custom node type handlings
+    switch($current_node_type) {
+    case 'date':
+      $this->addDateFields($node, $data);
+      break;
+    }
     // TODO: attachments
     // TODO: images
 
@@ -161,6 +167,15 @@ class MigrateThwCommands extends DrushCommands {
     return $node;
   }
 
+  private static function dateD7toD8($datestr) {
+    return str_replace(" ", "T", $datestr);
+  }
+  
+  private function addDateFields($node, $data) {
+    $node->field_date->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value);
+    $node->field_date->end_value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
+  }
+  
   private static function node_type_map($d7type) {
     switch ($d7type) {
       case 'gallery_assist':
