@@ -24,7 +24,7 @@ class MigrateThwCommands extends DrushCommands {
   private $first_node_id = 0;
   private $last_node_id = 0;
   private $pathbase = '';
-  private $delete_existing_nodes = FALSE;
+  private $delete_existing_nodes = TRUE;
 
   /**
    * Run migration.
@@ -178,12 +178,13 @@ class MigrateThwCommands extends DrushCommands {
   
   private static function node_type_map($d7type) {
     switch ($d7type) {
-      case 'gallery_assist':
-      case 'image':
-      case 'story' :
-        return 'blog';
-      default:
-        return $d7type;
+    case 'gallery_assist':
+    case 'image':
+    case 'story':
+    case 'blog':
+      return 'article';
+    default:
+      return $d7type;
     }
   }
 
@@ -193,6 +194,9 @@ class MigrateThwCommands extends DrushCommands {
    * @return string Cleaned summary
    */
   private static function clean_summary($rawsummary) {
+    if ($rawsummary == null) {
+      return null;
+    }
     $summary = trim($rawsummary);
     if (substr($summary, 0, 3) === '<p>' && substr($summary, -4) === '</p>') {
       return substr($summary, 3, -4);

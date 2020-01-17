@@ -3,8 +3,8 @@ Migration from Drupal 7 to Drupal 8
 
 ## Blockers
 
-* https://www.drupal.org/project/drupal/issues/2794481
-* https://www.drupal.org/project/drupal/issues/2632040
+* -https://www.drupal.org/project/drupal/issues/2794481-
+* -https://www.drupal.org/project/drupal/issues/2632040-
 
 ## Modules on Drupal 7
 
@@ -22,8 +22,10 @@ Migration from Drupal 7 to Drupal 8
 * Create content types
   * sponsoring
   * front page image (as image entity)
-* Enable forums module
-* Enable calendar
+* Modules:
+    * forums
+    * calendar
+    * fullcalendar_view
 * Set permissions
   * Disable forum content type for all users
 
@@ -56,4 +58,5 @@ Migration from Drupal 7 to Drupal 8
       * cropping data
       * alt-text
   * calendar dates
+    * Leitungssitzung: Ende leer? Ende = Anfang + 90 Min
   * forum messages
