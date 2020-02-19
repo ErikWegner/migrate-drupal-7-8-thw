@@ -3,8 +3,7 @@ Migration from Drupal 7 to Drupal 8
 
 ## Blockers
 
-* -https://www.drupal.org/project/drupal/issues/2794481-
-* -https://www.drupal.org/project/drupal/issues/2632040-
+NONE
 
 ## Modules on Drupal 7
 
@@ -13,6 +12,8 @@ Migration from Drupal 7 to Drupal 8
 
 ## Pending questions
 
+* Calendar content type:
+  * All day events vs. events with start and end time
 * Calendar module
   * https://www.drupal.org/project/fullcalendar_view
 * Image upload
@@ -21,8 +22,9 @@ Migration from Drupal 7 to Drupal 8
 
 * Create content types
   * sponsoring
-  * front page image (as image entity)
+  * -front page image (as image entity)-
 * Modules:
+    * acl
     * forums
     * calendar
     * fullcalendar_view
@@ -47,7 +49,8 @@ Migration from Drupal 7 to Drupal 8
 
 ## To implement
 
-* Migrate forum categories
+* -Migrate taxonomies-
+* -Migrate forum categories-
 * Migrate nodes
   * pages
   * articles

@@ -4,7 +4,9 @@ namespace Drupal\migratethw\Commands;
 
 use Symfony\Component\Console\Input\InputOption;
 use Drush\Commands\DrushCommands;
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\node\Entity\Node;
+use Drupal\taxonomy\Entity\Term;
 
 /**
  * A Drush commandfile.
@@ -46,6 +48,7 @@ class MigrateThwCommands extends DrushCommands {
   ) {
     $this->logger()->notice(dt('Start'));
     if ($this->validateOptions($options)) {
+      $this->importTaxonomies();
       $this->importNodes();
     }
     $this->logger()->notice(dt('Done'));
@@ -79,6 +82,53 @@ class MigrateThwCommands extends DrushCommands {
     return TRUE;
   }
 
+  private function importTaxonomies() {
+    $this->logger()->notice("Migrating taxonomies");
+    $vocabulary_mapping = [
+      '1' => 'forums',
+      '2' => 'bereich',
+      '3' => 'terminart',
+    ];
+    foreach($vocabulary_mapping as $vid => $vocabulary) {
+      // https://drupal.stackexchange.com/a/213257
+      /*$tids = \Drupal::entityQuery('taxonomy_term')
+        ->condition('vid', $vocabulary)
+        ->execute();
+
+      $controller = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+      $entities = $controller->loadMultiple($tids);
+      $controller->delete($entities);*/
+
+      $tids = \Drupal::entityQuery('taxonomy_term')
+      ->condition('vid', $vocabulary)
+      ->execute();
+      $this->logger()->notice('Deleting from {vocabulary}', ['vocabulary' => $vocabulary]);
+      entity_delete_multiple('taxonomy_term', $tids);
+    }
+
+    for ($page = 0; $page < 2; $page++) {
+      $this->logger()->notice("Loading taxonomy terms from page {page}", ['page' => $page]);
+      $json = file_get_contents($this->endpointbase . 'taxonomy_term?api-key=' . $this->apikey . '&page=' . $page);
+      $data = json_decode($json);
+    
+      foreach ($data as $termdata) {
+        $this->logger()->notice("Term {tname} for {v} (parent: {p}",[
+            'tname' => $termdata->name,
+            'v' => $vocabulary_mapping[$termdata->vid],
+            'p' => $termdata->parent,
+          ]);
+        $term = Term::create([
+          'tid' => $termdata->tid,
+          'name' => $termdata->name,
+          'description' => $termdata->description,
+          'vid' => $vocabulary_mapping[$termdata->vid],
+          'parent' => ['target_id' => $termdata->parent],
+        ]);
+        $term->save();
+      }
+    }
+  }
+
   private function importNodes() {
     for ($nid = $this->first_node_id; $nid < $this->last_node_id + 1; $nid++) {
       $this->importNode($nid);
@@ -100,7 +150,7 @@ class MigrateThwCommands extends DrushCommands {
 
   private function importNodeData($data) {
     $current_node_type = $data->type;
-    $allowed_types = ['blog', 'date', 'forum', 'gallery_assist', 'image', 'page', 'sponsoring', 'startseitenbild', 'story'];
+    $allowed_types = ['blog', 'date', 'forum', 'page', 'sponsoring', 'story'];
     if (in_array($current_node_type, $allowed_types) === FALSE) {
       $this->logger()->error('Unsupported type {type} for node {nid}', ['type' => $current_node_type, 'nid' => $data->nid]);
       return;
@@ -110,6 +160,11 @@ class MigrateThwCommands extends DrushCommands {
 
     // TODO: custom node type handlings
     switch($current_node_type) {
+    case 'blog':
+    case 'article':
+      $node->comment->status = CommentItemInterface::CLOSED;
+      $node->field_area->target_id = $data->taxonomy_vocabulary_2->und[0]->tid;
+      break;
     case 'date':
       $this->addDateFields($node, $data);
       break;
@@ -151,8 +206,7 @@ class MigrateThwCommands extends DrushCommands {
     $body = $data->body->und[0];
 
     // Set or update fields
-    $node->uid = $data->uid;
-
+    $node->uid = $data->uid == 6 ? 5 : 4;
     $node->title->value = $data->title;
     $node->status->value = $data->status;
     $node->created->value = $data->created;
@@ -172,18 +226,17 @@ class MigrateThwCommands extends DrushCommands {
   }
   
   private function addDateFields($node, $data) {
-    $node->field_date->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value);
-    $node->field_date->end_value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
+    $node->field_date_start->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value);
+    $node->field_date_end->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
   }
   
   private static function node_type_map($d7type) {
     switch ($d7type) {
-    case 'gallery_assist':
-    case 'image':
     case 'story':
     case 'blog':
       return 'article';
     default:
+      /* page, forum, date, sponsoring */
       return $d7type;
     }
   }
