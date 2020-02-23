@@ -21,7 +21,7 @@ NONE
 ## To do (before import)
 
 * Create content types
-  * sponsoring
+  * -sponsoring-
   * -front page image (as image entity)-
 * Modules:
     * acl
@@ -54,7 +54,7 @@ NONE
 * Migrate nodes
   * -pages-
   * -articles-
-  * sponsoring
+  * -sponsoring-
   * -front page image-
   * -blogs-
     * -Images with-
@@ -62,4 +62,4 @@ NONE
       * -alt-text-
   * -calendar dates-
     * -Leitungssitzung: Ende leer? Ende = Anfang + 90 Min-
-  * forum messages
+  * -forum messages-

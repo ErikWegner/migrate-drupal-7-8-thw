@@ -21,7 +21,8 @@ use Drupal\Core\File\FileSystemInterface;
  *   - http://cgit.drupalcode.org/devel/tree/src/Commands/DevelCommands.php
  *   - http://cgit.drupalcode.org/devel/tree/drush.services.yml
  */
-class MigrateThwCommands extends DrushCommands {
+class MigrateThwCommands extends DrushCommands
+{
 
   private $endpointbase = '';
   private $apikey = '';
@@ -56,8 +57,8 @@ class MigrateThwCommands extends DrushCommands {
     $this->logger()->notice(dt('Done'));
   }
 
-  public function setInput(\Symfony\Component\Console\Input\InputInterface $input) {
-
+  public function setInput(\Symfony\Component\Console\Input\InputInterface $input)
+  {
   }
 
   /**
@@ -65,7 +66,8 @@ class MigrateThwCommands extends DrushCommands {
    * @param Array $options Command line options.
    *
    */
-  private function validateOptions($options) {
+  private function validateOptions($options)
+  {
     $this->logger()->debug('validating options');
     $optionnames = ['endpointbase', 'apikey'];
     foreach ($optionnames as $optionname) {
@@ -84,14 +86,15 @@ class MigrateThwCommands extends DrushCommands {
     return TRUE;
   }
 
-  private function importTaxonomies() {
+  private function importTaxonomies()
+  {
     $this->logger()->notice("Migrating taxonomies");
     $vocabulary_mapping = [
       '1' => 'forums',
       '2' => 'bereich',
       '3' => 'terminart',
     ];
-    foreach($vocabulary_mapping as $vid => $vocabulary) {
+    foreach ($vocabulary_mapping as $vid => $vocabulary) {
       // https://drupal.stackexchange.com/a/213257
       /*$tids = \Drupal::entityQuery('taxonomy_term')
         ->condition('vid', $vocabulary)
@@ -102,8 +105,8 @@ class MigrateThwCommands extends DrushCommands {
       $controller->delete($entities);*/
 
       $tids = \Drupal::entityQuery('taxonomy_term')
-      ->condition('vid', $vocabulary)
-      ->execute();
+        ->condition('vid', $vocabulary)
+        ->execute();
       $this->logger()->notice('Deleting from {vocabulary}', ['vocabulary' => $vocabulary]);
       entity_delete_multiple('taxonomy_term', $tids);
     }
@@ -112,13 +115,13 @@ class MigrateThwCommands extends DrushCommands {
       $this->logger()->notice("Loading taxonomy terms from page {page}", ['page' => $page]);
       $json = file_get_contents($this->endpointbase . 'taxonomy_term?api-key=' . $this->apikey . '&page=' . $page);
       $data = json_decode($json);
-    
+
       foreach ($data as $termdata) {
-        $this->logger()->notice("Term {tname} for {v} (parent: {p}",[
-            'tname' => $termdata->name,
-            'v' => $vocabulary_mapping[$termdata->vid],
-            'p' => $termdata->parent,
-          ]);
+        $this->logger()->notice("Term {tname} for {v} (parent: {p}", [
+          'tname' => $termdata->name,
+          'v' => $vocabulary_mapping[$termdata->vid],
+          'p' => $termdata->parent,
+        ]);
         $term = Term::create([
           'tid' => $termdata->tid,
           'name' => $termdata->name,
@@ -131,13 +134,15 @@ class MigrateThwCommands extends DrushCommands {
     }
   }
 
-  private function importNodes() {
+  private function importNodes()
+  {
     for ($nid = $this->first_node_id; $nid < $this->last_node_id + 1; $nid++) {
       $this->importNode($nid);
     };
   }
 
-  private function importNode($nid) {
+  private function importNode($nid)
+  {
     $this->logger()->notice("Retrieving node {nid}", ['nid' => $nid]);
     $json = file_get_contents($this->endpointbase . 'node/' . $nid . '?api-key=' . $this->apikey);
     $data = json_decode($json);
@@ -150,7 +155,8 @@ class MigrateThwCommands extends DrushCommands {
     $this->importNodeData($data);
   }
 
-  private function importNodeData($data) {
+  private function importNodeData($data)
+  {
     $current_node_type = $data->type;
     $allowed_types = ['blog', 'date', 'forum', 'page', 'sponsoring', 'story'];
     if (in_array($current_node_type, $allowed_types) === FALSE) {
@@ -161,15 +167,23 @@ class MigrateThwCommands extends DrushCommands {
     $node = $this->get_or_create_node($data);
 
     // TODO: custom node type handlings
-    switch($current_node_type) {
-    case 'blog':
-    case 'article':
-      $node->comment->status = CommentItemInterface::CLOSED;
-      $node->field_area->target_id = $data->taxonomy_vocabulary_2->und[0]->tid;
-      break;
-    case 'date':
-      $this->addDateFields($node, $data);
-      break;
+    switch ($current_node_type) {
+      case 'blog':
+      case 'article':
+        $node->comment->status = CommentItemInterface::CLOSED;
+        $node->field_area->target_id = $data->taxonomy_vocabulary_2->und[0]->tid;
+        break;
+      case 'date':
+        $this->addDateFields($node, $data);
+        break;
+      case 'sponsoring':
+        $node->set('field_unternehmen', $data->field_unternehmen->und[0]->value);
+        $node->set('field_sponsoringart', $data->field_sponsoringart->und[0]->value);
+        $node->set('field_url', $data->field_url->und[0]->value);
+        break;
+      case 'forum':
+        $node->set('taxonomy_forums', $data->taxonomy_forums->und[0]->tid);
+        break;
     }
 
     // attachments
@@ -185,7 +199,8 @@ class MigrateThwCommands extends DrushCommands {
     $node->save();
   }
 
-  private function get_or_create_node($data) {
+  private function get_or_create_node($data)
+  {
     $node = Node::load($data->nid);
     /* Remove existing nodes if configured */
     if ($node !== NULL && $this->delete_existing_nodes) {
@@ -200,15 +215,17 @@ class MigrateThwCommands extends DrushCommands {
       // Select language from source node
       if (!($data->language === "de" || $data->language === "en" || $data->language === "und")) {
         $this->logger()->warning(
-          'Language {lang} on node {nid} switched to de', ['lang' => $data->language, 'nid' => $data->nid]);
+          'Language {lang} on node {nid} switched to de',
+          ['lang' => $data->language, 'nid' => $data->nid]
+        );
         $data->language = "de";
       }
 
       $node = Node::create([
-          'nid' => $data->nid,
-          'type' => MigrateThwCommands::node_type_map($data->type),
-          'langcode' => $data->language,
-          'path' => $nodealias,
+        'nid' => $data->nid,
+        'type' => MigrateThwCommands::node_type_map($data->type),
+        'langcode' => $data->language,
+        'path' => $nodealias,
       ]);
     }
 
@@ -231,19 +248,22 @@ class MigrateThwCommands extends DrushCommands {
     return $node;
   }
 
-  private static function dateD7toD8($datestr) {
+  private static function dateD7toD8($datestr)
+  {
     return str_replace(" ", "T", $datestr);
   }
-  
-  private function addDateFields($node, $data) {
+
+  private function addDateFields($node, $data)
+  {
     $node->field_date_start->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value);
     $node->field_date_end->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
   }
 
-  private function migrateFiles($list, $media_bundle, $media_field) {
+  private function migrateFiles($list, $media_bundle, $media_field)
+  {
     $r = [];
     foreach ($list as $imageref) {
-      $this->logger()->notice('Migrating {media_bundle {filename} ({fid})', ['media_bundle'=> $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
+      $this->logger()->notice('Migrating {media_bundle} {filename} ({fid})', ['media_bundle' => $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
       $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $imageref->fid . '?api-key=' . $this->apikey));
       $file_data = base64_decode($json->file);
       $file = file_save_data($file_data, 'public://' . $json->filename, FileSystemInterface::EXISTS_RENAME);
@@ -258,19 +278,21 @@ class MigrateThwCommands extends DrushCommands {
 
     return $r;
   }
-  
-  private static function uid_map($d7_userid) {
+
+  private static function uid_map($d7_userid)
+  {
     return $d7_userid == 6 ? 5 : 4;
   }
 
-  private static function node_type_map($d7type) {
+  private static function node_type_map($d7type)
+  {
     switch ($d7type) {
-    case 'story':
-    case 'blog':
-      return 'article';
-    default:
-      /* page, forum, date, sponsoring */
-      return $d7type;
+      case 'story':
+      case 'blog':
+        return 'article';
+      default:
+        /* page, forum, date, sponsoring */
+        return $d7type;
     }
   }
 
@@ -279,7 +301,8 @@ class MigrateThwCommands extends DrushCommands {
    * @param string $summary Imported summary
    * @return string Cleaned summary
    */
-  private static function clean_summary($rawsummary) {
+  private static function clean_summary($rawsummary)
+  {
     if ($rawsummary == null) {
       return null;
     }
@@ -297,7 +320,8 @@ class MigrateThwCommands extends DrushCommands {
   /**
    *  Map old input format to new Drupal 8 input format
    */
-  private static function format_map($format) {
+  private static function format_map($format)
+  {
     $format_map = array(
       1 => 'basic_html', // Filtered HTML in D7.
       2 => 'full_html', // Full HTML in D7.
@@ -313,7 +337,8 @@ class MigrateThwCommands extends DrushCommands {
     return $format_map[3];
   }
 
-  private function fix_node_summary($node) {
+  private function fix_node_summary($node)
+  {
     $v = $node->body->value;
 
     $needle = '<!--break-->';
@@ -341,5 +366,4 @@ class MigrateThwCommands extends DrushCommands {
     $node->body->summary = $summary;
     $node->body->value = $body;
   }
-
 }
