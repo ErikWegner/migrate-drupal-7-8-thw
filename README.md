@@ -52,14 +52,14 @@ NONE
 * -Migrate taxonomies-
 * -Migrate forum categories-
 * Migrate nodes
-  * pages
-  * articles
+  * -pages-
+  * -articles-
   * sponsoring
-  * front page image
-  * blogs
-    * Images with
-      * cropping data
-      * alt-text
-  * calendar dates
-    * Leitungssitzung: Ende leer? Ende = Anfang + 90 Min
+  * -front page image-
+  * -blogs-
+    * -Images with-
+      * -cropping data-
+      * -alt-text-
+  * -calendar dates-
+    * -Leitungssitzung: Ende leer? Ende = Anfang + 90 Min-
   * forum messages

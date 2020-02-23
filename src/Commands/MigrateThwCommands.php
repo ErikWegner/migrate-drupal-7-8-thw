@@ -5,8 +5,10 @@ namespace Drupal\migratethw\Commands;
 use Symfony\Component\Console\Input\InputOption;
 use Drush\Commands\DrushCommands;
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
+use Drupal\media\Entity\Media;
 use Drupal\node\Entity\Node;
 use Drupal\taxonomy\Entity\Term;
+use Drupal\Core\File\FileSystemInterface;
 
 /**
  * A Drush commandfile.
@@ -48,7 +50,7 @@ class MigrateThwCommands extends DrushCommands {
   ) {
     $this->logger()->notice(dt('Start'));
     if ($this->validateOptions($options)) {
-      $this->importTaxonomies();
+      //$this->importTaxonomies();
       $this->importNodes();
     }
     $this->logger()->notice(dt('Done'));
@@ -169,8 +171,16 @@ class MigrateThwCommands extends DrushCommands {
       $this->addDateFields($node, $data);
       break;
     }
-    // TODO: attachments
-    // TODO: images
+
+    // attachments
+    if (isset($data->upload->und)) {
+      $node->set('field_attachments', $this->migrateFiles($data->upload->und, 'document', 'field_media_document'));
+    }
+
+    // Migrate images
+    if (isset($data->field_img->und)) {
+      $node->set('field_images', $this->migrateFiles($data->field_img->und, 'image', 'field_media_image'));
+    }
 
     $node->save();
   }
@@ -206,7 +216,7 @@ class MigrateThwCommands extends DrushCommands {
     $body = $data->body->und[0];
 
     // Set or update fields
-    $node->uid = $data->uid == 6 ? 5 : 4;
+    $node->uid = MigrateThwCommands::uid_map($data->uid);
     $node->title->value = $data->title;
     $node->status->value = $data->status;
     $node->created->value = $data->created;
@@ -229,7 +239,30 @@ class MigrateThwCommands extends DrushCommands {
     $node->field_date_start->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value);
     $node->field_date_end->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
   }
+
+  private function migrateFiles($list, $media_bundle, $media_field) {
+    $r = [];
+    foreach ($list as $imageref) {
+      $this->logger()->notice('Migrating {media_bundle {filename} ({fid})', ['media_bundle'=> $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
+      $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $imageref->fid . '?api-key=' . $this->apikey));
+      $file_data = base64_decode($json->file);
+      $file = file_save_data($file_data, 'public://' . $json->filename, FileSystemInterface::EXISTS_RENAME);
+      $media = Media::create([
+        'bundle' => $media_bundle,
+        'uid' => MigrateThwCommands::uid_map($json->uid),
+        $media_field => ['target_id' => $file->id(), 'alt' => $imageref->title],
+      ]);
+      $media->setName($json->filename)->setPublished(TRUE)->save();
+      $r[] = ['target_id' => $media->id()];
+    }
+
+    return $r;
+  }
   
+  private static function uid_map($d7_userid) {
+    return $d7_userid == 6 ? 5 : 4;
+  }
+
   private static function node_type_map($d7type) {
     switch ($d7type) {
     case 'story':
