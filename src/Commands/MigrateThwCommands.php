@@ -188,12 +188,12 @@ class MigrateThwCommands extends DrushCommands
 
     // attachments
     if (isset($data->upload->und)) {
-      $node->set('field_attachments', $this->migrateFiles($data->upload->und, 'document', 'field_media_document'));
+      $node->set('field_attachments', $this->migrateFiles($data->upload->und, 'document', 'field_media_document', $current_node_type != 'forum'));
     }
 
     // Migrate images
     if (isset($data->field_img->und)) {
-      $node->set('field_images', $this->migrateFiles($data->field_img->und, 'image', 'field_media_image'));
+      $node->set('field_images', $this->migrateFiles($data->field_img->und, 'image', 'field_media_image', true));
     }
 
     $node->save();
@@ -259,14 +259,15 @@ class MigrateThwCommands extends DrushCommands
     $node->field_date_end->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
   }
 
-  private function migrateFiles($list, $media_bundle, $media_field)
+  private function migrateFiles($list, $media_bundle, $media_field, $schemePublic)
   {
     $r = [];
     foreach ($list as $imageref) {
       $this->logger()->notice('Migrating {media_bundle} {filename} ({fid})', ['media_bundle' => $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
       $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $imageref->fid . '?api-key=' . $this->apikey));
       $file_data = base64_decode($json->file);
-      $file = file_save_data($file_data, 'public://' . $json->filename, FileSystemInterface::EXISTS_RENAME);
+      $path = date('Y-m', $json->timestamp);
+      $file = file_save_data($file_data, ($schemePublic ? 'public://' : 'private://') . $path . '/' . $json->filename, FileSystemInterface::EXISTS_RENAME);
       $media = Media::create([
         'bundle' => $media_bundle,
         'uid' => MigrateThwCommands::uid_map($json->uid),
