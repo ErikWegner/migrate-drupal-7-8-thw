@@ -266,8 +266,9 @@ class MigrateThwCommands extends DrushCommands
       $this->logger()->notice('Migrating {media_bundle} {filename} ({fid})', ['media_bundle' => $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
       $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $imageref->fid . '?api-key=' . $this->apikey));
       $file_data = base64_decode($json->file);
-      $path = date('Y-m', $json->timestamp);
-      $file = file_save_data($file_data, ($schemePublic ? 'public://' : 'private://') . $path . '/' . $json->filename, FileSystemInterface::EXISTS_RENAME);
+      $path = ($schemePublic ? 'public://' : 'private://') . date('Y-m', $json->timestamp);
+      \Drupal::service('file_system')->prepareDirectory($path, FileSystemInterface::CREATE_DIRECTORY);
+      $file = file_save_data($file_data, $path . '/' . $json->filename, FileSystemInterface::EXISTS_RENAME);
       $media = Media::create([
         'bundle' => $media_bundle,
         'uid' => MigrateThwCommands::uid_map($json->uid),
