@@ -11,6 +11,17 @@ use Drupal\taxonomy\Entity\Term;
 use Drupal\Core\File\FileSystemInterface;
 
 /**
+ * Changes:
+ * 
+ * Inhaltstyp Article:
+ *   Feld field_images als Bilder
+ *   Feld field_attachments als Anhänge publicfiles
+ * 
+ * Inhaltstyp Forum:
+ *   Feld field_attachments als Anhänge privatefiles
+ */
+
+/**
  * A Drush commandfile.
  *
  * In addition to this file, you need a drush.services.yml
@@ -188,12 +199,15 @@ class MigrateThwCommands extends DrushCommands
 
     // attachments
     if (isset($data->upload->und)) {
-      $node->set('field_attachments', $this->migrateFiles($data->upload->und, 'document', 'field_media_document', $current_node_type != 'forum'));
+      $public_attachments = $current_node_type != 'forum';
+      $node->set(
+        $public_attachments ? 'field_publicfiles' : 'field_privatefiles',
+        $this->migrateFiles($data->upload->und, $public_attachments));
     }
 
     // Migrate images
     if (isset($data->field_img->und)) {
-      $node->set('field_images', $this->migrateFiles($data->field_img->und, 'image', 'field_media_image', true));
+      $node->set('field_images', $this->migrateFiles($data->field_img->und, true));
     }
 
     $node->save();
@@ -259,23 +273,34 @@ class MigrateThwCommands extends DrushCommands
     $node->field_date_end->value = MigrateThwCommands::dateD7toD8($data->field_date->und[0]->value2);
   }
 
-  private function migrateFiles($list, $media_bundle, $media_field, $schemePublic)
+  private function migrateFiles($list, $schemePublic)
   {
     $r = [];
-    foreach ($list as $imageref) {
-      $this->logger()->notice('Migrating {media_bundle} {filename} ({fid})', ['media_bundle' => $media_bundle, 'filename' => $imageref->filename, 'fid' => $imageref->fid]);
-      $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $imageref->fid . '?api-key=' . $this->apikey));
+    foreach ($list as $fileref) {
+      $this->logger()->notice('Migrating {filename} ({fid})', ['filename' => $fileref->filename, 'fid' => $fileref->fid]);
+      $json = json_decode(file_get_contents($this->endpointbase . 'file/' . $fileref->fid . '?api-key=' . $this->apikey));
       $file_data = base64_decode($json->file);
       $path = ($schemePublic ? 'public://' : 'private://') . date('Y-m', $json->timestamp);
       \Drupal::service('file_system')->prepareDirectory($path, FileSystemInterface::CREATE_DIRECTORY);
       $file = file_save_data($file_data, $path . '/' . $json->filename, FileSystemInterface::EXISTS_RENAME);
-      $media = Media::create([
-        'bundle' => $media_bundle,
-        'uid' => MigrateThwCommands::uid_map($json->uid),
-        $media_field => ['target_id' => $file->id(), 'alt' => $imageref->title],
-      ]);
-      $media->setName($json->filename)->setPublished(TRUE)->save();
-      $r[] = ['target_id' => $media->id()];
+      $attachmentdata = [
+        'target_id' => $file->id(),
+        'status' => $fileref->status,
+      ];
+      if (isset($fileref->display)) {
+        $attachmentdata['display'] = $fileref->display;
+      }
+      if (isset($fileref->description)) {
+        $attachmentdata['description'] = $fileref->description;
+      }
+      if (isset($fileref->alt)) {
+        $attachmentdata['alt'] = $fileref->alt;
+      }
+      if (isset($fileref->title)) {
+        $attachmentdata['alt'] = $fileref->title;
+      }
+      
+      $r[] = $attachmentdata;
     }
 
     return $r;
